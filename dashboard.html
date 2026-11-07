@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Insta Senses — Insights</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark" aria-hidden="true">IS</div><div><b>Insta Senses</b><span>Follower insights</span></div></div>
+    <nav aria-label="Insights sections">
+      <button class="nav-item active" data-view="overview" aria-current="page"><span aria-hidden="true">⌁</span>Overview</button>
+      <button class="nav-item" data-view="people"><span aria-hidden="true">♙</span>People</button>
+      <button class="nav-item" data-view="history"><span aria-hidden="true">◴</span>History</button>
+    </nav>
+    <div class="privacy"><span>◇</span><div><b>Private by design</b><p>Your snapshots stay in this browser.</p></div></div>
+  </aside>
+  <main>
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="hero-top"><div><span class="hero-label">Instagram insights</span><h1 id="heroUsername">Your account</h1><p>Understand your circle without automating your account.</p></div><button id="openInstagram">Open Instagram <span aria-hidden="true">↗</span></button></div>
+      <div class="hero-counts"><div><strong id="followersCount">0</strong><span>Followers captured</span></div><i></i><div><strong id="followingCount">0</strong><span>Following captured</span></div><i></i><div><strong id="mutualCount">0</strong><span>Mutual connections</span></div></div>
+    </section>
+
+    <section class="view active" id="overviewView">
+      <div class="section-heading"><div><span class="kicker">Snapshot comparison</span><h2>What changed?</h2></div><div class="dates"><label>From<select id="fromSnapshot" aria-label="Starting snapshot"></select></label><span aria-hidden="true">→</span><label>To<select id="toSnapshot" aria-label="Ending snapshot"></select></label></div></div>
+      <div class="stats-grid">
+        <button class="stat-card pink" data-list="newFollowers"><span class="stat-icon">＋</span><strong id="newFollowersStat">0</strong><b>New followers</b><small>Started following you</small></button>
+        <button class="stat-card coral" data-list="lostFollowers"><span class="stat-icon">−</span><strong id="lostFollowersStat">0</strong><b>Lost followers</b><small>No longer follow you</small></button>
+        <button class="stat-card amber" data-list="newFollowing"><span class="stat-icon">＋</span><strong id="newFollowingStat">0</strong><b>New following</b><small>You started following</small></button>
+        <button class="stat-card violet" data-list="lostFollowing"><span class="stat-icon">−</span><strong id="lostFollowingStat">0</strong><b>Lost following</b><small>You no longer follow</small></button>
+      </div>
+      <div class="relationship-grid">
+        <button class="relationship-card" data-list="notFollowingBack"><div class="relation-icon rose">↛</div><div><strong id="notBackStat">0</strong><b>Don’t follow you back</b><span>Accounts you follow</span></div><em>→</em></button>
+        <button class="relationship-card" data-list="youDoNotFollowBack"><div class="relation-icon gold">↚</div><div><strong id="youNotBackStat">0</strong><b>You don’t follow back</b><span>Your followers</span></div><em>→</em></button>
+        <button class="relationship-card" data-list="mutuals"><div class="relation-icon purple">↔</div><div><strong id="mutualStat">0</strong><b>Mutual connections</b><span>You follow each other</span></div><em>→</em></button>
+      </div>
+      <article class="safety-card" id="safetyCard">
+        <div class="safety-copy">
+          <span class="kicker">Account safety</span>
+          <h2>Ban likelihood</h2>
+          <p id="safetyAdvice">Insta Senses estimates risk from local list-request volume, then slows or pauses scanning. It cannot see Instagram’s private enforcement model.</p>
+        </div>
+        <div class="safety-meter">
+          <b id="safetyScore">0% Low</b>
+          <div class="safety-bar"><i id="safetyFill"></i></div>
+          <ul class="safety-facts">
+            <li><strong id="safetyRequests">0</strong><span>List requests / 10 min</span></li>
+            <li><strong id="safetyScans">0</strong><span>Scans in 24 hours</span></li>
+            <li><strong id="safetyUnfollows">0</strong><span>Unfollow opens / hour</span></li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <section class="view" id="peopleView">
+      <div class="section-heading"><div><span class="kicker">Account review</span><h2 id="peopleTitle">People</h2></div><label class="search"><span aria-hidden="true">⌕</span><span class="sr-only">Search people</span><input id="searchInput" type="search" placeholder="Search username or name"></label></div>
+      <div class="filter-row" id="filterRow"></div>
+      <div class="people-list" id="peopleList"></div>
+    </section>
+
+    <section class="view" id="historyView">
+      <div class="section-heading"><div><span class="kicker">Local snapshots</span><h2>Capture history</h2></div><div class="history-actions"><button class="outline-button primary-outline" id="importButton">Import JSON</button><button class="outline-button" id="exportButton">Back up snapshots</button><input id="importInput" type="file" accept=".json,application/json" multiple hidden></div></div>
+      <p class="import-help" id="importHelp" aria-live="polite">Import an Insta Senses backup, or select Instagram’s <b>followers_*.json</b> and <b>following.json</b> files for a fast capture.</p>
+      <div class="history-list" id="historyList"></div>
+    </section>
+    <footer>Insta Senses is not affiliated with Instagram or Meta. No automated follow, unfollow, or private API requests.</footer>
+  </main>
+  <script src="store.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

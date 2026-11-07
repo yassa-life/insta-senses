@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Insta Senses</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <header><div class="logo" aria-hidden="true">IS</div><div><strong>Insta Senses</strong><span>Local follower insights</span></div><span class="status" id="status" aria-live="polite">Checking</span></header>
+    <section class="profile" id="profileCard">
+      <div class="profile-copy"><span class="eyebrow">Current profile</span><h1 id="profileName">Open an Instagram profile</h1><p id="profileHelp" aria-live="polite">Go to your profile, then choose the list you want to capture.</p></div>
+    </section>
+    <section class="safety" id="safetyCard">
+      <div class="safety-top"><span>Account risk</span><b id="riskScore">—</b></div>
+      <div class="safety-bar"><i id="riskFill"></i></div>
+      <p id="riskHelp">Watching list-request volume from this account so scans can slow down before Instagram throttles you.</p>
+    </section>
+    <section class="capture">
+      <button class="capture-button followers" data-capture="followers" disabled><span class="button-icon" aria-hidden="true">↓</span><span><b>Scan followers</b><small>Slows if risk rises</small></span></button>
+      <button class="capture-button following" data-capture="following" disabled><span class="button-icon" aria-hidden="true">↑</span><span><b>Scan following</b><small>Slows if risk rises</small></span></button>
+    </section>
+    <div class="hint"><span>i</span><p>Keep the Instagram tab open. Huge lists should use <b>Import Instagram JSON</b> in insights — that creates no extra Instagram requests.</p></div>
+    <button class="dashboard-button" id="dashboardButton">View insights <span>→</span></button>
+  </main>
+  <script src="store.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
