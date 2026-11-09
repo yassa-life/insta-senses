@@ -79,6 +79,8 @@ globalThis.InstaStore = (() => {
   }
 
   const DAY_MS = 24 * 60 * 60 * 1000;
+  const REQUEST_LIMITS = Object.freeze({ perMinute: 8, perTenMinutes: 25, perHour: 80 });
+  const COOLDOWNS = Object.freeze({ volume: 60 * 60 * 1000, throttle: 6 * 60 * 60 * 1000, checkpoint: DAY_MS });
   const emptyActivity = () => ({
     requests: [],
     scrolls: [],
@@ -114,8 +116,11 @@ globalThis.InstaStore = (() => {
     const scrolls10m = countSince(data.scrolls, 10 * 60 * 1000);
     const captures24 = data.captures.length;
     const unfollowsHour = countSince(data.unfollows, 60 * 60 * 1000);
-    const recentThrottle = data.signals.some((item) => item.type === "throttle" && now - item.t < 30 * 60 * 1000);
-    const recentCheckpoint = data.signals.some((item) => (item.type === "checkpoint" || item.type === "challenge") && now - item.t < 2 * 60 * 60 * 1000);
+    const recentThrottle = data.signals.some((item) => item.type === "throttle" && now - item.t < COOLDOWNS.throttle);
+    const recentCheckpoint = data.signals.some((item) => (item.type === "checkpoint" || item.type === "challenge") && now - item.t < COOLDOWNS.checkpoint);
+    const volumeLimit = last60 >= REQUEST_LIMITS.perMinute
+      || last10m >= REQUEST_LIMITS.perTenMinutes
+      || lastHour >= REQUEST_LIMITS.perHour;
     const cooling = data.cooldownUntil > now;
 
     let score = 0;
@@ -127,6 +132,7 @@ globalThis.InstaStore = (() => {
     score += Math.min(12, unfollowsHour * 4);
     if (recentThrottle) score += 38;
     if (recentCheckpoint) score += 50;
+    if (volumeLimit) score = Math.max(score, 78);
     if (cooling) score = Math.max(score, 78);
     score = Math.min(100, Math.round(score));
 
@@ -136,7 +142,7 @@ globalThis.InstaStore = (() => {
     const blocked = level === "critical" || cooling;
     const waitMs = Math.max(0, data.cooldownUntil - now);
     const advice = blocked
-      ? `Ban likelihood is high. Pause Instagram list loading for ${formatWait(waitMs || 20 * 60 * 1000)}. Import official JSON instead of scanning.`
+      ? `Account-safety risk is high. Stop loading lists for ${formatWait(waitMs || COOLDOWNS.volume)}. Import official JSON instead of capturing.`
       : level === "high"
         ? "Request volume is heavy. The scan will crawl slower, and huge lists are safer via JSON import."
         : level === "moderate"
@@ -157,6 +163,7 @@ globalThis.InstaStore = (() => {
       jitterMs,
       blocked,
       cooling,
+      volumeLimit,
       waitMs,
       cooldownUntil: data.cooldownUntil,
       advice
@@ -181,9 +188,16 @@ globalThis.InstaStore = (() => {
       else if (event.kind === "signal") current.signals.push(row);
     }
     const risk = assessRisk(current, now);
-    if (risk.level === "critical" && current.cooldownUntil < now) {
-      current.cooldownUntil = now + 20 * 60 * 1000;
-    }
+    const sawCheckpoint = events.some((event) => event.kind === "signal" && (event.type === "checkpoint" || event.type === "challenge"));
+    const sawThrottle = events.some((event) => event.kind === "signal" && event.type === "throttle");
+    const cooldownMs = sawCheckpoint
+      ? COOLDOWNS.checkpoint
+      : sawThrottle
+        ? COOLDOWNS.throttle
+        : risk.level === "critical"
+          ? COOLDOWNS.volume
+          : 0;
+    if (cooldownMs) current.cooldownUntil = Math.max(current.cooldownUntil, now + cooldownMs);
     await set({ activityLog: pruneActivity(current, now) });
     return assessRisk(current, now);
   }
@@ -192,5 +206,5 @@ globalThis.InstaStore = (() => {
     return assessRisk(await loadActivity());
   }
 
-  return { get, set, remove, saveSnapshot, compare, latestOf, getDashboardData, normalize, normalizeUsername, assessRisk, recordEvents, getRisk, loadActivity };
+  return { get, set, remove, saveSnapshot, compare, latestOf, getDashboardData, normalize, normalizeUsername, assessRisk, recordEvents, getRisk, loadActivity, REQUEST_LIMITS };
 })();

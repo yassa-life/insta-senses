@@ -33,7 +33,7 @@ async function init() {
       $("#profileName").textContent = `@${activeProfile}`;
       $("#profileHelp").textContent = latestRisk?.blocked
         ? "Scanning is paused until this account cools down."
-        : "Choose a list below. Keep Instagram open while the safer scan runs.";
+        : "Choose a list, then scroll it manually and save when ready.";
       const { profile = {} } = await InstaStore.get(["profile"]);
       await InstaStore.set({ profile: { ...profile, username: activeProfile } });
     } else {
@@ -60,7 +60,7 @@ document.querySelectorAll("[data-capture]").forEach((button) => {
     const original = button.querySelector("b").textContent;
     button.querySelector("b").textContent = "Starting…";
     try {
-      const result = await sendToTab({ type: "START_CAPTURE", listType, profileUsername: activeProfile, openList: true, autoScroll: true });
+      const result = await sendToTab({ type: "START_CAPTURE", listType, profileUsername: activeProfile, openList: true });
       if (result?.risk) renderRisk(result.risk);
       if (!result?.ok) throw new Error(result?.error || "Could not start capture");
       window.close();

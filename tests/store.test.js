@@ -87,7 +87,7 @@ test("restores a backup timestamp but always creates a fresh id", async () => {
   assert.notEqual(snapshot.id, "untrusted-id");
 });
 
-test("blocks scans after critical Instagram safety signals", () => {
+test("blocks captures after critical Instagram safety signals", () => {
   const risk = InstaStore.assessRisk({
     requests: [],
     scrolls: [],
@@ -101,4 +101,29 @@ test("blocks scans after critical Instagram safety signals", () => {
   });
   assert.equal(risk.blocked, true);
   assert.equal(risk.level, "critical");
+});
+
+test("blocks capture at the conservative ten-minute request ceiling", () => {
+  const now = Date.now();
+  const requests = Array.from({ length: InstaStore.REQUEST_LIMITS.perTenMinutes }, (_, index) => ({
+    t: now - 90_000 - index * 1_000,
+    kind: "request"
+  }));
+  const risk = InstaStore.assessRisk({
+    requests,
+    scrolls: [],
+    captures: [],
+    unfollows: [],
+    signals: [],
+    cooldownUntil: 0
+  }, now);
+  assert.equal(risk.volumeLimit, true);
+  assert.equal(risk.blocked, true);
+});
+
+test("persists a long cooldown after an Instagram throttle signal", async () => {
+  const before = Date.now();
+  const risk = await InstaStore.recordEvents([{ kind: "signal", type: "throttle" }]);
+  assert.equal(risk.blocked, true);
+  assert.ok(risk.cooldownUntil >= before + 6 * 60 * 60 * 1000);
 });

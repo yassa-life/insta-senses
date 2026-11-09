@@ -22,7 +22,7 @@ use a private Instagram API.
 - Back up and restore Insta Senses snapshots as JSON.
 - Review people with search and relationship filters.
 - Open profiles for manual review or unfollow confirmation.
-- Slow or pause scanning when local activity signals indicate elevated risk.
+- Stop capture at conservative request limits when local activity signals indicate elevated risk.
 - Keep all captured data in the browser's local extension storage.
 - Use a responsive, keyboard-accessible dashboard with reduced-motion support.
 
@@ -42,8 +42,8 @@ Dashboard compares snapshots in the browser
 ```
 
 The extension only collects accounts that Instagram has rendered in the open
-followers or following dialog. During a live capture, it scrolls the list at a
-conservative pace and watches for new rows. For a large account, importing the
+followers or following dialog. During a live capture, you scroll the list
+manually and choose when to save. For a large account, importing the
 official Instagram JSON export is faster and avoids loading the complete list
 through Instagram's interface.
 
@@ -75,12 +75,11 @@ the Insta Senses toolbar icon.
 
 1. Open the Instagram profile you want to inspect.
 2. Select the Insta Senses toolbar icon.
-3. Choose **Scan followers** or **Scan following**.
-4. Keep the Instagram tab open while the capture panel is visible.
-5. Allow the scan to finish, or use **Pause**, **Save**, or **Cancel**.
+3. Choose **Capture followers** or **Capture following**.
+4. Scroll the Instagram list manually while the capture panel is visible.
+5. Use **Save** when ready, or use **Pause** or **Cancel**.
 6. Select **View insights** to open the dashboard.
 
-The snapshot saves automatically after the list stops producing new accounts.
 Capturing both followers and following enables mutual and follow-back insights.
 
 ### Compare snapshots
@@ -174,14 +173,16 @@ if you want to preserve your history.
 - The extension uses the Instagram page already open in your browser.
 - It does not call a private or undocumented Instagram API.
 - It does not automate follows, likes, comments, messages, or removals.
-- Live scrolling uses delays and can be paused or cancelled.
-- Critical local activity signals trigger a temporary cool-down.
+- The extension never scrolls a list automatically; capture follows your manual scrolling.
+- Conservative request ceilings and visible Instagram warning signals trigger a temporary cool-down.
 - Large lists are better handled through official JSON import.
 
 The displayed risk percentage is a local heuristic based on observed request
-volume, scan activity, unfollow opens, and visible throttle or checkpoint
+volume, capture activity, unfollow opens, and visible throttle or checkpoint
 messages. It cannot predict Instagram's private enforcement systems or
-guarantee that an account will not be restricted.
+guarantee that an account will not be restricted. There is no safe automated
+rate that Instagram publishes, so the extension favors manual capture and
+official JSON import over attempts to imitate human behavior.
 
 ## Browser permissions
 
@@ -254,7 +255,7 @@ After changing extension files:
 Before publishing a change, verify:
 
 - The popup detects an Instagram profile.
-- Followers and following scans can start, pause, save, and cancel.
+- Followers and following captures can start, pause, save, and cancel without automatic scrolling.
 - Separate Instagram profiles do not share dashboard snapshots.
 - Snapshot comparisons produce the expected added and removed accounts.
 - Instagram JSON import accepts split follower files.
@@ -275,7 +276,7 @@ refreshed so the content script can start.
 Open the followers or following dialog manually. Instagram occasionally changes
 its navigation or delays rendering the dialog.
 
-### A scan stops or enters cool-down
+### A capture stops or enters cool-down
 
 The extension detected elevated local activity or an Instagram throttle signal.
 Stop loading lists, wait for the displayed cool-down, or import the official

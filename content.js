@@ -3,11 +3,11 @@
   let observer = null;
   let panel = null;
   let scanTimer = null;
-  let autoScrollTimer = null;
   let signalTimer = null;
   let refreshQueued = false;
   let pendingEvents = [];
   let flushTimer = null;
+  let activeWarning = null;
   let latestRisk = { score: 0, level: "low", label: "Low", advice: "Measuring request volume…", blocked: false, waitMs: 0, delayMs: 2600, jitterMs: 1400 };
 
   const text = (el) => (el?.textContent || "").trim();
@@ -51,6 +51,7 @@
     try {
       latestRisk = await InstaStore.recordEvents(events);
       renderRiskMeter();
+      if (session && latestRisk.blocked) enterCooldown(latestRisk.advice);
     } catch {
       // Storage can fail if the extension was reloaded.
     }
@@ -114,27 +115,29 @@
 
   function refreshPanel() {
     if (!session || !panel) return;
-    extractVisiblePeople().forEach((person) => {
-      const key = person.username.toLowerCase();
-      const existing = session.people.get(key) || {};
-      session.people.set(key, {
-        ...existing,
-        ...person,
-        displayName: person.displayName || existing.displayName || "",
-        avatar: person.avatar || existing.avatar || ""
+    if (!session.paused && !session.cooldown) {
+      extractVisiblePeople().forEach((person) => {
+        const key = person.username.toLowerCase();
+        const existing = session.people.get(key) || {};
+        session.people.set(key, {
+          ...existing,
+          ...person,
+          displayName: person.displayName || existing.displayName || "",
+          avatar: person.avatar || existing.avatar || ""
+        });
       });
-    });
+    }
     const count = String(session.people.size);
     const countNode = panel.querySelector("[data-count]");
     if (countNode && countNode.textContent !== count) countNode.textContent = count;
     const status = panel.querySelector("[data-status]");
     if (!status) return;
     const nextStatus = session.cooldown
-      ? `Cool-down · ban likelihood ${latestRisk.score}%`
+      ? `Cool-down · safety risk ${latestRisk.score}%`
       : session.paused
         ? `Paused · ${session.people.size} collected`
         : session.people.size
-          ? (session.autoScroll ? `Safer scan · ${session.people.size} collected` : "Scroll the list to collect more")
+          ? "Scroll manually, then save when ready"
           : "Waiting for Instagram’s list…";
     if (status.textContent !== nextStatus) status.textContent = nextStatus;
     renderRiskMeter();
@@ -153,12 +156,10 @@
     panel?.remove();
     observer?.disconnect();
     clearInterval(scanTimer);
-    clearTimeout(autoScrollTimer);
     session = null;
     panel = null;
     observer = null;
     scanTimer = null;
-    autoScrollTimer = null;
   }
 
   function sendSnapshot(payload) {
@@ -208,82 +209,18 @@
     return true;
   }
 
-  function findListScroller() {
-    const dialog = [...document.querySelectorAll('[role="dialog"]')].at(-1);
-    if (!dialog) return null;
-    return [...dialog.querySelectorAll("div")]
-      .filter((el) => el.scrollHeight > el.clientHeight + 80 && el.clientHeight > 150)
-      .sort((a, b) => (b.scrollHeight - b.clientHeight) - (a.scrollHeight - a.clientHeight))[0] || null;
-  }
-
-  function nextScrollDelay() {
-    const rest = session?.cycles && session.cycles % 18 === 0 && latestRisk.level !== "low"
-      ? (latestRisk.level === "high" ? 14000 : 7000)
-      : 0;
-    return (latestRisk.delayMs || 2600) + Math.floor(Math.random() * (latestRisk.jitterMs || 1400)) + rest;
-  }
-
   function enterCooldown(reason) {
     if (!session) return;
     session.paused = true;
     session.cooldown = true;
-    session.autoScroll = false;
     const button = panel?.querySelector("[data-pause]");
     if (button) {
       button.textContent = "Cool-down";
       button.disabled = true;
     }
     const status = panel?.querySelector("[data-status]");
-    if (status) status.textContent = reason || `Cool-down · ban likelihood ${latestRisk.score}%`;
+    if (status) status.textContent = reason || `Cool-down · safety risk ${latestRisk.score}%`;
     renderRiskMeter();
-  }
-
-  function runAutoScroll() {
-    if (!session?.autoScroll || session.paused || session.cooldown) return;
-    if (latestRisk.blocked) {
-      enterCooldown(latestRisk.advice);
-      return;
-    }
-    refreshPanel();
-    const scroller = findListScroller();
-    const status = panel?.querySelector("[data-status]");
-    if (!scroller) {
-      if (status) status.textContent = "Waiting for Instagram’s list…";
-      autoScrollTimer = setTimeout(runAutoScroll, 1200);
-      return;
-    }
-
-    const beforeCount = session.people.size;
-    const beforeHeight = scroller.scrollHeight;
-    scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
-    queueActivity({ kind: "scroll" });
-    session.cycles += 1;
-    if (status) status.textContent = `Safer scan · ${beforeCount} collected`;
-
-    autoScrollTimer = setTimeout(() => {
-      if (!session?.autoScroll || session.paused || session.cooldown) return;
-      refreshPanel();
-      const currentScroller = findListScroller();
-      const grew = session.people.size > beforeCount || (currentScroller?.scrollHeight || 0) > beforeHeight;
-      session.stalled = grew ? 0 : session.stalled + 1;
-
-      if (latestRisk.blocked) {
-        enterCooldown(latestRisk.advice);
-        if (session.people.size > 0) setTimeout(finishCapture, 400);
-        return;
-      }
-      if (session.people.size > 0 && session.stalled >= 10) {
-        if (status) status.textContent = "Complete · saving snapshot…";
-        setTimeout(finishCapture, 500);
-        return;
-      }
-      if (session.cycles >= 900) {
-        if (status) status.textContent = "Safety stop reached · saving…";
-        setTimeout(finishCapture, 500);
-        return;
-      }
-      runAutoScroll();
-    }, nextScrollDelay());
   }
 
   function togglePause() {
@@ -293,8 +230,7 @@
     button.textContent = session.paused ? "Resume" : "Pause";
     panel.querySelector("[data-status]").textContent = session.paused
       ? `Paused · ${session.people.size} collected`
-      : "Resuming safer scan…";
-    if (!session.paused) runAutoScroll();
+      : "Scroll manually, then save when ready";
   }
 
   function buildPanel(title, statusText) {
@@ -308,7 +244,7 @@
         <div class="is-capture-actions"><button class="is-pause" data-pause>Pause</button><button class="is-cancel" data-cancel>Cancel</button><button data-finish>Save</button></div>
       </div>
       <div class="is-risk" data-risk data-level="low">
-        <div class="is-risk-top"><span>Ban likelihood</span><b data-risk-score>0% Low</b></div>
+        <div class="is-risk-top"><span>Account-safety risk</span><b data-risk-score>0% Low</b></div>
         <div class="is-risk-bar"><i data-risk-fill></i></div>
         <small data-risk-note>Watching Instagram list requests from this tab…</small>
       </div>`;
@@ -318,7 +254,7 @@
     panel.querySelector("[data-pause]").addEventListener("click", togglePause);
   }
 
-  async function startCapture(type, profileUsername, shouldOpenList = false, autoScroll = true) {
+  async function startCapture(type, profileUsername, shouldOpenList = false) {
     if (session) {
       const payload = takeSnapshotPayload();
       cleanupCapture();
@@ -327,10 +263,9 @@
     if (typeof InstaStore !== "undefined") {
       try { latestRisk = await InstaStore.getRisk(); } catch { /* keep last risk */ }
     }
-    session = { type, profileUsername, people: new Map(), autoScroll, paused: false, cooldown: false, stalled: 0, cycles: 0 };
+    session = { type, profileUsername, people: new Map(), paused: false, cooldown: false };
     buildPanel(`Capturing ${type}`, latestRisk.blocked ? "Scan paused for account safety" : "Opening Instagram’s list…");
     if (latestRisk.blocked) {
-      session.autoScroll = false;
       enterCooldown(latestRisk.advice);
     }
     observer = new MutationObserver((mutations) => {
@@ -342,22 +277,25 @@
       panel.querySelector("[data-status]").textContent = `Click ${type} on the profile, then scroll`;
     }
     refreshPanel();
-    if (!latestRisk.blocked && autoScroll) autoScrollTimer = setTimeout(runAutoScroll, 1400);
   }
 
   function inspectInstagramSignals() {
     const visible = `${document.title} ${text(document.querySelector("main"))} ${text(document.querySelector('[role="dialog"]'))}`.slice(0, 4000);
     if (checkpointPattern.test(visible)) {
       latestRisk = { ...latestRisk, score: Math.max(latestRisk.score, 92), level: "critical", label: "Critical", blocked: true, advice: "Instagram asked for a security check. Stop scanning and wait before loading more lists." };
-      queueActivity({ kind: "signal", type: "checkpoint" });
+      if (activeWarning !== "checkpoint") queueActivity({ kind: "signal", type: "checkpoint" });
+      activeWarning = "checkpoint";
       if (session) enterCooldown(latestRisk.advice);
       return;
     }
     if (throttlePattern.test(visible)) {
       latestRisk = { ...latestRisk, score: Math.max(latestRisk.score, 80), level: "critical", label: "Critical", blocked: true, advice: "Instagram is throttling this account. Cool down before any more list requests." };
-      queueActivity({ kind: "signal", type: "throttle" });
+      if (activeWarning !== "throttle") queueActivity({ kind: "signal", type: "throttle" });
+      activeWarning = "throttle";
       if (session) enterCooldown(latestRisk.advice);
+      return;
     }
+    activeWarning = null;
   }
 
   function watchForConfirmedUnfollow() {
@@ -431,7 +369,7 @@
           try { latestRisk = await InstaStore.getRisk(); } catch { /* continue */ }
         }
         if (latestRisk.blocked) {
-          await startCapture(message.listType, profileUsername, false, false);
+          await startCapture(message.listType, profileUsername, false);
           sendResponse({
             ok: false,
             error: latestRisk.advice,
@@ -439,7 +377,7 @@
           });
           return;
         }
-        await startCapture(message.listType, profileUsername, message.openList === true, message.autoScroll !== false);
+        await startCapture(message.listType, profileUsername, message.openList === true);
         sendResponse({ ok: true, risk: latestRisk });
       };
       begin();
